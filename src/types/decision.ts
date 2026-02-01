@@ -8,7 +8,28 @@ export interface Priority {
 export interface Option {
   id: string;
   name: string;
+  emotionalText: string;
   scores: Record<string, number>;
+}
+
+export interface DetectedEmotion {
+  type: 'fear' | 'excitement' | 'guilt' | 'relief' | 'uncertainty';
+  label: string;
+  intensity: number; // 0-1
+}
+
+export interface EmotionalAnalysis {
+  optionId: string;
+  optionName: string;
+  emotions: DetectedEmotion[];
+  dominantEmotion: DetectedEmotion | null;
+}
+
+export interface CognitivePattern {
+  id: string;
+  label: string;
+  description: string;
+  detected: boolean;
 }
 
 export interface DecisionState {
