@@ -1,7 +1,8 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { useState } from 'react';
-import { Plus, X } from 'lucide-react';
+import { Plus, X, Heart } from 'lucide-react';
 import type { Option } from '@/types/decision';
+import { detectEmotions, getEmotionColor } from '@/lib/emotionDetection';
 
 interface OptionsStepProps {
   options: Option[];
@@ -12,21 +13,33 @@ interface OptionsStepProps {
 
 const OptionsStep = ({ options, onOptionsChange, onNext, onBack }: OptionsStepProps) => {
   const [newOption, setNewOption] = useState('');
+  const [expandedOption, setExpandedOption] = useState<string | null>(null);
 
   const addOption = () => {
     if (newOption.trim() && options.length < 4) {
       const option: Option = {
         id: crypto.randomUUID(),
         name: newOption.trim(),
+        emotionalText: '',
         scores: {},
       };
       onOptionsChange([...options, option]);
       setNewOption('');
+      setExpandedOption(option.id);
     }
   };
 
   const removeOption = (id: string) => {
     onOptionsChange(options.filter((o) => o.id !== id));
+    if (expandedOption === id) {
+      setExpandedOption(null);
+    }
+  };
+
+  const updateEmotionalText = (id: string, text: string) => {
+    onOptionsChange(
+      options.map((o) => (o.id === id ? { ...o, emotionalText: text } : o))
+    );
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -36,13 +49,17 @@ const OptionsStep = ({ options, onOptionsChange, onNext, onBack }: OptionsStepPr
     }
   };
 
+  const toggleExpand = (id: string) => {
+    setExpandedOption(expandedOption === id ? null : id);
+  };
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -20 }}
       transition={{ duration: 0.4 }}
-      className="flex flex-col items-center justify-center min-h-[70vh] px-6"
+      className="flex flex-col items-center justify-center min-h-[70vh] px-6 py-8"
     >
       <div className="w-full max-w-md">
         <motion.div
@@ -55,35 +72,100 @@ const OptionsStep = ({ options, onOptionsChange, onNext, onBack }: OptionsStepPr
             Your Options
           </h2>
           <p className="text-muted-foreground">
-            Add up to 4 options you're considering
+            Add up to 4 options and share how each makes you feel
           </p>
         </motion.div>
 
         <div className="space-y-4 mb-8">
           <AnimatePresence mode="popLayout">
-            {options.map((option, index) => (
-              <motion.div
-                key={option.id}
-                initial={{ opacity: 0, scale: 0.95, y: -10 }}
-                animate={{ opacity: 1, scale: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.95, x: -20 }}
-                transition={{ duration: 0.2 }}
-                className="card-calm flex items-center justify-between gap-4"
-              >
-                <div className="flex items-center gap-3">
-                  <span className="w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center text-sm font-medium">
-                    {index + 1}
-                  </span>
-                  <span className="text-foreground font-medium">{option.name}</span>
-                </div>
-                <button
-                  onClick={() => removeOption(option.id)}
-                  className="p-2 rounded-full hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
+            {options.map((option, index) => {
+              const emotions = detectEmotions(option.emotionalText);
+              const isExpanded = expandedOption === option.id;
+              
+              return (
+                <motion.div
+                  key={option.id}
+                  initial={{ opacity: 0, scale: 0.95, y: -10 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.95, x: -20 }}
+                  transition={{ duration: 0.2 }}
+                  className="card-calm"
                 >
-                  <X size={18} />
-                </button>
-              </motion.div>
-            ))}
+                  <div className="flex items-center justify-between gap-4">
+                    <div 
+                      className="flex items-center gap-3 flex-1 cursor-pointer"
+                      onClick={() => toggleExpand(option.id)}
+                    >
+                      <span className="w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center text-sm font-medium flex-shrink-0">
+                        {index + 1}
+                      </span>
+                      <span className="text-foreground font-medium">{option.name}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => toggleExpand(option.id)}
+                        className={`p-2 rounded-full transition-colors ${
+                          option.emotionalText 
+                            ? 'bg-accent/20 text-accent' 
+                            : 'hover:bg-muted text-muted-foreground'
+                        }`}
+                        title="Add how you feel"
+                      >
+                        <Heart size={16} fill={option.emotionalText ? 'currentColor' : 'none'} />
+                      </button>
+                      <button
+                        onClick={() => removeOption(option.id)}
+                        className="p-2 rounded-full hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
+                      >
+                        <X size={18} />
+                      </button>
+                    </div>
+                  </div>
+
+                  <AnimatePresence>
+                    {isExpanded && (
+                      <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        exit={{ opacity: 0, height: 0 }}
+                        transition={{ duration: 0.2 }}
+                        className="overflow-hidden"
+                      >
+                        <div className="mt-4 pt-4 border-t border-border">
+                          <label className="block text-sm text-muted-foreground mb-2">
+                            How does this option make you feel?
+                          </label>
+                          <textarea
+                            value={option.emotionalText}
+                            onChange={(e) => updateEmotionalText(option.id, e.target.value)}
+                            placeholder="e.g., Excited but nervous about the unknown..."
+                            className="input-calm min-h-[80px] resize-none text-sm"
+                            maxLength={200}
+                          />
+                          
+                          {emotions.length > 0 && (
+                            <div className="flex flex-wrap gap-2 mt-3">
+                              {emotions.slice(0, 3).map((emotion) => (
+                                <span
+                                  key={emotion.type}
+                                  className="text-xs px-2 py-1 rounded-full"
+                                  style={{
+                                    backgroundColor: `${getEmotionColor(emotion.type)}20`,
+                                    color: getEmotionColor(emotion.type),
+                                  }}
+                                >
+                                  {emotion.label}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </motion.div>
+              );
+            })}
           </AnimatePresence>
 
           {options.length < 4 && (
