@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { Trophy, RefreshCw, Heart, Brain, MessageCircle } from 'lucide-react';
 import type { Option, Priority } from '@/types/decision';
@@ -7,6 +8,9 @@ import {
   getEmotionalInsight,
   getEmotionColor,
 } from '@/lib/emotionDetection';
+import { useAuth } from '@/hooks/useAuth';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
 
 interface ResultsStepProps {
   decision: string;
@@ -22,6 +26,10 @@ interface ScoredOption {
 }
 
 const ResultsStep = ({ decision, options, priorities, onReset }: ResultsStepProps) => {
+  const { user } = useAuth();
+  const { toast } = useToast();
+  const hasSavedRef = useRef(false);
+
   // Calculate weighted scores
   const scoredOptions: ScoredOption[] = options.map((option) => {
     const breakdown = priorities.map((priority) => {
@@ -50,6 +58,9 @@ const ResultsStep = ({ decision, options, priorities, onReset }: ResultsStepProp
 
   const getLogicalRecommendation = () => {
     const secondPlace = scoredOptions[1];
+    if (!secondPlace) {
+      return `Based on your priorities, "${winner.option.name}" is your only option.`;
+    }
     const margin = winner.totalScore - secondPlace.totalScore;
     const percentMargin = (margin / maxPossible) * 100;
 
@@ -62,7 +73,53 @@ const ResultsStep = ({ decision, options, priorities, onReset }: ResultsStepProp
     }
   };
 
-  const hasEmotionalData = options.some((o) => o.emotionalText.trim());
+  const logicalInsightText = getLogicalRecommendation();
+  const hasEmotionalData = options.some((o) => o.emotionalText?.trim());
+
+  // Save decision to database when component mounts (for logged in users)
+  useEffect(() => {
+    const saveDecision = async () => {
+      if (!user || hasSavedRef.current) return;
+      hasSavedRef.current = true;
+
+      const recommendation = {
+        winnerId: winner.option.id,
+        winnerName: winner.option.name,
+        scores: scoredOptions.map((s) => ({
+          optionId: s.option.id,
+          optionName: s.option.name,
+          totalScore: s.totalScore,
+          percentage: Math.round((s.totalScore / maxPossible) * 100),
+        })),
+        logicalInsight: logicalInsightText,
+        emotionalInsight: emotionalInsight || '',
+      };
+
+      const { error } = await supabase.from('saved_decisions').insert([{
+        user_id: user.id,
+        decision,
+        options: JSON.parse(JSON.stringify(options)),
+        priorities: JSON.parse(JSON.stringify(priorities)),
+        recommendation: JSON.parse(JSON.stringify(recommendation)),
+      }]);
+
+      if (error) {
+        console.error('Error saving decision:', error);
+        toast({
+          title: 'Could not save',
+          description: 'Your decision was not saved to your history.',
+          variant: 'destructive',
+        });
+      } else {
+        toast({
+          title: 'Decision saved',
+          description: 'View it anytime in your dashboard.',
+        });
+      }
+    };
+
+    saveDecision();
+  }, [user, decision, options, priorities, winner, scoredOptions, maxPossible, logicalInsightText, emotionalInsight, toast]);
 
   return (
     <motion.div
