@@ -87,13 +87,11 @@ const Index = () => {
   const handleDraftRestore = () => {
     if (!draft) return;
     
-    const { decision: draftDecision, options: draftOptions, priorities: draftPriorities, currentStep, confidenceScore: draftConfidence, reflectionNotes: draftReflection } = draft.draftData;
+    const { decision: draftDecision, options: draftOptions, priorities: draftPriorities, currentStep } = draft.draftData;
     
     setDecision(draftDecision);
     setOptions(draftOptions || []);
     setPriorities(draftPriorities || DEFAULT_PRIORITIES);
-    setConfidenceScore(draftConfidence);
-    setReflectionNotes(draftReflection);
     setDraftRestored(true);
     clearLoadedDraft();
     

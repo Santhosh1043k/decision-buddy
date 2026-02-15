@@ -16,6 +16,12 @@ import { Badge } from '@/components/ui/badge';
 import DecisionInsight from '@/components/DecisionInsight';
 import DevilsAdvocate from '@/components/DevilsAdvocate';
 
+interface ScoredOption {
+  option: Option;
+  totalScore: number;
+  breakdown: Array<{ priority: Priority; weighted: number }>;
+}
+
 interface ResultsStepProps {
   decision: string;
   options: Option[];
@@ -145,16 +151,6 @@ const ResultsStep = ({ decision, options, priorities, confidenceScore, reflectio
         options: JSON.parse(JSON.stringify(options)),
         priorities: JSON.parse(JSON.stringify(priorities)),
         recommendation: JSON.parse(JSON.stringify(recommendation)),
-        confidence_score: confidenceScore,
-        reflection_notes: reflectionNotes,
-        pros_cons: JSON.parse(JSON.stringify(options.map(o => ({
-          optionId: o.id,
-          optionName: o.name,
-          pros: o.pros || [],
-          cons: o.cons || [],
-        })))),
-        ai_insights: JSON.parse(JSON.stringify(decisionIntelligence)),
-        devils_advocate_questions: JSON.parse(JSON.stringify([])),
       }]);
 
       if (error) {

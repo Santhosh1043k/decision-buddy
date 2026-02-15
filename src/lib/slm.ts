@@ -440,7 +440,7 @@ export function generateDecisionIntelligenceAnalysis(
     situationSummary: `You're deciding: "${decision}". After evaluating your options against your priorities, "${winner.name}" has emerged as the best fit.`,
     emotionalInsight,
     keyFactorsAndConstraints,
-    optionsAnalysis,
+    optionsAnalysis: optionAnalysis,
     risksAndTradeoffs,
     recommendedDecision: {
       option: winner.name,
@@ -478,7 +478,7 @@ function generateEmotionalInsight(winner: Option): string {
   const dominantEmotion = emotions.length > 0 ? emotions[0] : null;
 
   if (dominantEmotion) {
-    return `Your feelings about "${winner.name}" show ${dominantEmotion.label.toLowerCase()} with ${Math.round(dominantEmotion.intensity * 100)}% intensity. ${dominantEmotion.type === 'excitement' ? 'This positive energy is encouraging, but ensure it doesn't cloud your judgment.' : dominantEmotion.type === 'fear' ? 'These concerns are valid and should be addressed before proceeding.' : 'This emotional response provides valuable insight into your true feelings.'}`;
+    return `Your feelings about "${winner.name}" show ${dominantEmotion.label.toLowerCase()} with ${Math.round(dominantEmotion.intensity * 100)}% intensity. ${dominantEmotion.type === 'excitement' ? "This positive energy is encouraging, but ensure it doesn't cloud your judgment." : dominantEmotion.type === 'fear' ? 'These concerns are valid and should be addressed before proceeding.' : 'This emotional response provides valuable insight into your true feelings.'}`;
   }
 
   return `You appear to have a relatively calm and rational perspective on "${winner.name}." This balanced emotional state is helpful for clear decision-making.`;
