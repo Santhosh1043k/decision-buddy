@@ -38,6 +38,29 @@ export interface DecisionState {
   priorities: Priority[];
 }
 
+export interface DecisionTemplate {
+  id: string;
+  category: 'career' | 'financial' | 'relationships' | 'lifestyle' | 'health';
+  title: string;
+  description: string;
+  exampleDecision: string;
+  suggestedPriorities: Priority[];
+  icon: string;
+}
+
+export interface DecisionDraft {
+  id: string;
+  userId: string;
+  draftData: {
+    decision: string;
+    options: Option[];
+    priorities: Priority[];
+    currentStep: number;
+  };
+  createdAt: string;
+  updatedAt: string;
+}
+
 export const DEFAULT_PRIORITIES: Priority[] = [
   { id: 'money', label: 'Money', description: 'Financial impact', value: 3 },
   { id: 'happiness', label: 'Happiness', description: 'Joy and fulfillment', value: 3 },
