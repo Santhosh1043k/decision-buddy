@@ -1,6 +1,6 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { useState } from 'react';
-import { Plus, X, Heart } from 'lucide-react';
+import { Plus, X, Heart, Image, ImageOff } from 'lucide-react';
 import type { Option } from '@/types/decision';
 import { detectEmotions, getEmotionColor } from '@/lib/emotionDetection';
 
@@ -14,6 +14,7 @@ interface OptionsStepProps {
 const OptionsStep = ({ options, onOptionsChange, onNext, onBack }: OptionsStepProps) => {
   const [newOption, setNewOption] = useState('');
   const [expandedOption, setExpandedOption] = useState<string | null>(null);
+  const [imageUrlInput, setImageUrlInput] = useState<Record<string, string>>({});
 
   const addOption = () => {
     if (newOption.trim() && options.length < 4) {
@@ -22,11 +23,26 @@ const OptionsStep = ({ options, onOptionsChange, onNext, onBack }: OptionsStepPr
         name: newOption.trim(),
         emotionalText: '',
         scores: {},
+        pros: [],
+        cons: [],
       };
       onOptionsChange([...options, option]);
       setNewOption('');
       setExpandedOption(option.id);
     }
+  };
+
+  const updateImageUrl = (id: string, url: string) => {
+    onOptionsChange(
+      options.map((o) => (o.id === id ? { ...o, imageUrl: url.trim() || undefined } : o))
+    );
+  };
+
+  const clearImageUrl = (id: string) => {
+    onOptionsChange(
+      options.map((o) => (o.id === id ? { ...o, imageUrl: undefined } : o))
+    );
+    setImageUrlInput((prev) => ({ ...prev, [id]: '' }));
   };
 
   const removeOption = (id: string) => {
@@ -131,34 +147,88 @@ const OptionsStep = ({ options, onOptionsChange, onNext, onBack }: OptionsStepPr
                         transition={{ duration: 0.2 }}
                         className="overflow-hidden"
                       >
-                        <div className="mt-4 pt-4 border-t border-border">
-                          <label className="block text-sm text-muted-foreground mb-2">
-                            How does this option make you feel?
-                          </label>
-                          <textarea
-                            value={option.emotionalText}
-                            onChange={(e) => updateEmotionalText(option.id, e.target.value)}
-                            placeholder="e.g., Excited but nervous about the unknown..."
-                            className="input-calm min-h-[80px] resize-none text-sm"
-                            maxLength={200}
-                          />
-                          
-                          {emotions.length > 0 && (
-                            <div className="flex flex-wrap gap-2 mt-3">
-                              {emotions.slice(0, 3).map((emotion) => (
-                                <span
-                                  key={emotion.type}
-                                  className="text-xs px-2 py-1 rounded-full"
-                                  style={{
-                                    backgroundColor: `${getEmotionColor(emotion.type)}20`,
-                                    color: getEmotionColor(emotion.type),
-                                  }}
+                        <div className="mt-4 pt-4 border-t border-border space-y-4">
+                          {/* Image URL Input */}
+                          <div>
+                            <label className="block text-sm text-muted-foreground mb-2 flex items-center gap-2">
+                              <Image size={14} />
+                              Add an image (optional)
+                            </label>
+                            <div className="flex gap-2">
+                              <input
+                                type="url"
+                                value={imageUrlInput[option.id] ?? option.imageUrl ?? ''}
+                                onChange={(e) => {
+                                  setImageUrlInput((prev) => ({ ...prev, [option.id]: e.target.value }));
+                                  updateImageUrl(option.id, e.target.value);
+                                }}
+                                placeholder="https://example.com/image.jpg"
+                                className="input-calm flex-1 text-sm"
+                              />
+                              {option.imageUrl && (
+                                <button
+                                  onClick={() => clearImageUrl(option.id)}
+                                  className="p-2 rounded-lg hover:bg-muted transition-colors text-muted-foreground"
+                                  title="Remove image"
                                 >
-                                  {emotion.label}
-                                </span>
-                              ))}
+                                  <ImageOff size={18} />
+                                </button>
+                              )}
                             </div>
-                          )}
+                            {/* Image Preview */}
+                            {option.imageUrl && (
+                              <motion.div
+                                initial={{ opacity: 0, height: 0 }}
+                                animate={{ opacity: 1, height: 'auto' }}
+                                exit={{ opacity: 0, height: 0 }}
+                                className="mt-3"
+                              >
+                                <div className="relative w-full h-32 rounded-xl overflow-hidden bg-muted">
+                                  <img
+                                    src={option.imageUrl}
+                                    alt={option.name}
+                                    className="w-full h-full object-cover"
+                                    onError={(e) => {
+                                      (e.target as HTMLImageElement).style.display = 'none';
+                                      (e.target as HTMLImageElement).parentElement!.innerHTML = '<div class="flex items-center justify-center h-full text-muted-foreground text-sm">Failed to load image</div>';
+                                    }}
+                                  />
+                                </div>
+                              </motion.div>
+                            )}
+                          </div>
+
+                          {/* Emotional Text Input */}
+                          <div>
+                            <label className="block text-sm text-muted-foreground mb-2 flex items-center gap-2">
+                              <Heart size={14} />
+                              How does this option make you feel?
+                            </label>
+                            <textarea
+                              value={option.emotionalText}
+                              onChange={(e) => updateEmotionalText(option.id, e.target.value)}
+                              placeholder="e.g., Excited but nervous about the unknown..."
+                              className="input-calm min-h-[80px] resize-none text-sm"
+                              maxLength={200}
+                            />
+                            
+                            {emotions.length > 0 && (
+                              <div className="flex flex-wrap gap-2 mt-3">
+                                {emotions.slice(0, 3).map((emotion) => (
+                                  <span
+                                    key={emotion.type}
+                                    className="text-xs px-2 py-1 rounded-full"
+                                    style={{
+                                      backgroundColor: `${getEmotionColor(emotion.type)}20`,
+                                      color: getEmotionColor(emotion.type),
+                                    }}
+                                  >
+                                    {emotion.label}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+                          </div>
                         </div>
                       </motion.div>
                     )}
