@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Trophy, RefreshCw, Heart, Brain, MessageCircle, ThumbsUp, ThumbsDown, Moon, TrendingUp, Sparkles, AlertCircle, HelpCircle, CheckCircle2 } from 'lucide-react';
 import type { Option, Priority } from '@/types/decision';
@@ -8,10 +8,13 @@ import {
   getEmotionalInsight,
   getEmotionColor,
 } from '@/lib/emotionDetection';
+import { generateDecisionIntelligenceAnalysis } from '@/lib/slm';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
+import DecisionInsight from '@/components/DecisionInsight';
+import DevilsAdvocate from '@/components/DevilsAdvocate';
 
 interface ResultsStepProps {
   decision: string;
@@ -26,6 +29,8 @@ const ResultsStep = ({ decision, options, priorities, confidenceScore, reflectio
   const { user } = useAuth();
   const { toast } = useToast();
   const hasSavedRef = useRef(false);
+  const [showDecisionIntelligence, setShowDecisionIntelligence] = useState(false);
+  const [decisionIntelligence, setDecisionIntelligence] = useState<ReturnType<typeof generateDecisionIntelligenceAnalysis> | null>(null);
 
   // Calculate weighted scores
   const scoredOptions: ScoredOption[] = options.map((option) => {
@@ -100,6 +105,17 @@ const ResultsStep = ({ decision, options, priorities, confidenceScore, reflectio
   const confidenceInsight = getConfidenceInsight(confidenceScore);
   const ConfidenceIcon = confidenceInsight.icon;
 
+  // Generate Decision Intelligence analysis
+  const handleGenerateDecisionIntelligence = () => {
+    const analysis = generateDecisionIntelligenceAnalysis(decision, options, priorities, winner.option);
+    setDecisionIntelligence(analysis);
+    setShowDecisionIntelligence(true);
+    toast({
+      title: 'Decision Intelligence',
+      description: 'A structured analysis has been generated for your decision.',
+    });
+  };
+
   // Save decision to database when component mounts (for logged in users)
   useEffect(() => {
     const saveDecision = async () => {
@@ -120,6 +136,9 @@ const ResultsStep = ({ decision, options, priorities, confidenceScore, reflectio
         confidenceScore,
       };
 
+      // Generate Decision Intelligence for saving
+      const decisionIntelligence = generateDecisionIntelligenceAnalysis(decision, options, priorities, winner.option);
+
       const { error } = await supabase.from('saved_decisions').insert([{
         user_id: user.id,
         decision,
@@ -134,6 +153,8 @@ const ResultsStep = ({ decision, options, priorities, confidenceScore, reflectio
           pros: o.pros || [],
           cons: o.cons || [],
         })))),
+        ai_insights: JSON.parse(JSON.stringify(decisionIntelligence)),
+        devils_advocate_questions: JSON.parse(JSON.stringify([])),
       }]);
 
       if (error) {
@@ -395,7 +416,7 @@ const ResultsStep = ({ decision, options, priorities, confidenceScore, reflectio
                 Pros & Cons for "{winner.option.name}"
               </span>
             </div>
-            
+
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {/* Pros */}
               <div>
@@ -439,6 +460,32 @@ const ResultsStep = ({ decision, options, priorities, confidenceScore, reflectio
             </div>
           </motion.div>
         )}
+
+        {/* Decision Intelligence Agent - AI-powered analysis */}
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.8 }}
+          className="mb-6"
+        >
+          {!showDecisionIntelligence ? (
+            <button
+              onClick={handleGenerateDecisionIntelligence}
+              className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white rounded-lg transition-all group"
+            >
+              <Brain className="w-5 h-5" />
+              <span className="text-sm font-medium">Get AI-Powered Decision Intelligence</span>
+              <Sparkles className="w-4 h-4 opacity-70" />
+            </button>
+          ) : (
+            <>
+              {decisionIntelligence && (
+                <DecisionInsight analysis={decisionIntelligence} />
+              )}
+              <DevilsAdvocate decision={decision} options={options} winner={winner.option} />
+            </>
+          )}
+        </motion.div>
 
         {/* Phase 4 CTAs */}
         <motion.div

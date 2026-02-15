@@ -187,6 +187,9 @@ const Index = () => {
                 onOptionsChange={setOptions}
                 onNext={() => setStep('prosCons')}
                 onBack={() => setStep('welcome')}
+                priorities={priorities}
+                onPrioritiesChange={setPriorities}
+                decision={decision}
               />
             )}
 
