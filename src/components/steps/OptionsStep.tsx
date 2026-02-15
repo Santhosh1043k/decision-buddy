@@ -1,17 +1,21 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { useState } from 'react';
 import { Plus, X, Heart, Image, ImageOff } from 'lucide-react';
-import type { Option } from '@/types/decision';
+import type { Option, Priority } from '@/types/decision';
 import { detectEmotions, getEmotionColor } from '@/lib/emotionDetection';
+import SmartPrioritySuggestions from '@/components/SmartPrioritySuggestions';
 
 interface OptionsStepProps {
   options: Option[];
   onOptionsChange: (options: Option[]) => void;
   onNext: () => void;
   onBack: () => void;
+  priorities?: Priority[];
+  onPrioritiesChange?: (priorities: Priority[]) => void;
+  decision?: string;
 }
 
-const OptionsStep = ({ options, onOptionsChange, onNext, onBack }: OptionsStepProps) => {
+const OptionsStep = ({ options, onOptionsChange, onNext, onBack, priorities, onPrioritiesChange, decision }: OptionsStepProps) => {
   const [newOption, setNewOption] = useState('');
   const [expandedOption, setExpandedOption] = useState<string | null>(null);
   const [imageUrlInput, setImageUrlInput] = useState<Record<string, string>>({});
@@ -263,6 +267,15 @@ const OptionsStep = ({ options, onOptionsChange, onNext, onBack }: OptionsStepPr
             </motion.div>
           )}
         </div>
+
+        {/* Smart Priority Suggestions */}
+        {options.length >= 2 && priorities && onPrioritiesChange && decision && (
+          <SmartPrioritySuggestions
+            decisionText={decision}
+            onSelectPriorities={onPrioritiesChange}
+            existingPriorities={priorities}
+          />
+        )}
 
         <div className="flex gap-4">
           <button onClick={onBack} className="btn-secondary flex-1">
