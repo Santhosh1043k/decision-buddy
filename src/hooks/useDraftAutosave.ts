@@ -8,6 +8,8 @@ interface DraftData {
   options: Option[];
   priorities: Priority[];
   currentStep: number;
+  confidenceScore?: number;
+  reflectionNotes?: string;
 }
 
 interface UseDraftAutosaveOptions {
@@ -15,6 +17,8 @@ interface UseDraftAutosaveOptions {
   options: Option[];
   priorities: Priority[];
   currentStep: number;
+  confidenceScore?: number;
+  reflectionNotes?: string;
   enabled?: boolean;
 }
 
@@ -23,6 +27,8 @@ export const useDraftAutosave = ({
   options,
   priorities,
   currentStep,
+  confidenceScore,
+  reflectionNotes,
   enabled = true,
 }: UseDraftAutosaveOptions) => {
   const { user } = useAuth();
@@ -103,6 +109,8 @@ export const useDraftAutosave = ({
         options,
         priorities,
         currentStep,
+        confidenceScore,
+        reflectionNotes,
       });
     }, 5000);
 
@@ -112,12 +120,12 @@ export const useDraftAutosave = ({
         clearTimeout(saveTimeoutRef.current);
       }
     };
-  }, [decision, options, priorities, currentStep, user, enabled]);
+  }, [decision, options, priorities, currentStep, confidenceScore, reflectionNotes, user, enabled]);
 
   return {
     isSaving,
     lastSaved,
     clearDraft,
-    saveDraft: () => saveDraft({ decision, options, priorities, currentStep }),
+    saveDraft: () => saveDraft({ decision, options, priorities, currentStep, confidenceScore, reflectionNotes }),
   };
 };

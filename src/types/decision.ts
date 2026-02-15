@@ -10,6 +10,9 @@ export interface Option {
   name: string;
   emotionalText: string;
   scores: Record<string, number>;
+  pros: string[];
+  cons: string[];
+  imageUrl?: string;
 }
 
 export interface DetectedEmotion {
@@ -36,6 +39,8 @@ export interface DecisionState {
   decision: string;
   options: Option[];
   priorities: Priority[];
+  confidenceScore?: number;
+  reflectionNotes?: string;
 }
 
 export interface DecisionTemplate {

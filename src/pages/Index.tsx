@@ -3,15 +3,17 @@ import { AnimatePresence, motion } from 'framer-motion';
 import StepIndicator from '@/components/StepIndicator';
 import WelcomeStep from '@/components/steps/WelcomeStep';
 import OptionsStep from '@/components/steps/OptionsStep';
+import ProsConsStep from '@/components/steps/ProsConsStep';
 import PrioritiesStep from '@/components/steps/PrioritiesStep';
 import OptionsRatingStep from '@/components/steps/OptionsRatingStep';
+import ConfidenceStep from '@/components/steps/ConfidenceStep';
 import ResultsStep from '@/components/steps/ResultsStep';
 import { DEFAULT_PRIORITIES, type Option, type Priority, type DecisionTemplate } from '@/types/decision';
 import { useDraftAutosave } from '@/hooks/useDraftAutosave';
 import { useDraftLoader } from '@/hooks/useDraftLoader';
 import { useAuth } from '@/hooks/useAuth';
 
-type Step = 'welcome' | 'options' | 'priorities' | 'rating' | 'results';
+type Step = 'welcome' | 'options' | 'prosCons' | 'priorities' | 'rating' | 'confidence' | 'results';
 
 const Index = () => {
   const [step, setStep] = useState<Step>('welcome');
@@ -21,14 +23,18 @@ const Index = () => {
   const [currentPriorityIndex, setCurrentPriorityIndex] = useState(0);
   const [draftRestored, setDraftRestored] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState<DecisionTemplate | null>(null);
+  const [confidenceScore, setConfidenceScore] = useState<number | undefined>(undefined);
+  const [reflectionNotes, setReflectionNotes] = useState<string | undefined>(undefined);
 
   const getStepIndex = (): number => {
     switch (step) {
       case 'welcome': return 0;
       case 'options': return 1;
-      case 'priorities': return 2;
-      case 'rating': return 3;
-      case 'results': return 4;
+      case 'prosCons': return 2;
+      case 'priorities': return 3;
+      case 'rating': return 4;
+      case 'confidence': return 5;
+      case 'results': return 6;
       default: return 0;
     }
   };
@@ -51,6 +57,8 @@ const Index = () => {
     setCurrentPriorityIndex(0);
     setDraftRestored(false);
     setSelectedTemplate(null);
+    setConfidenceScore(undefined);
+    setReflectionNotes(undefined);
     clearDraft();
   };
 
@@ -58,9 +66,8 @@ const Index = () => {
     if (currentPriorityIndex < priorities.length - 1) {
       setCurrentPriorityIndex(currentPriorityIndex + 1);
     } else {
-      // Clear draft when reaching results
-      clearDraft();
-      setStep('results');
+      // Go to confidence step before results
+      setStep('confidence');
     }
   };
 
@@ -80,11 +87,13 @@ const Index = () => {
   const handleDraftRestore = () => {
     if (!draft) return;
     
-    const { decision: draftDecision, options: draftOptions, priorities: draftPriorities, currentStep } = draft.draftData;
+    const { decision: draftDecision, options: draftOptions, priorities: draftPriorities, currentStep, confidenceScore: draftConfidence, reflectionNotes: draftReflection } = draft.draftData;
     
     setDecision(draftDecision);
-    setOptions(draftOptions);
-    setPriorities(draftPriorities);
+    setOptions(draftOptions || []);
+    setPriorities(draftPriorities || DEFAULT_PRIORITIES);
+    setConfidenceScore(draftConfidence);
+    setReflectionNotes(draftReflection);
     setDraftRestored(true);
     clearLoadedDraft();
     
@@ -94,11 +103,17 @@ const Index = () => {
         setStep('options');
         break;
       case 2:
-        setStep('priorities');
+        setStep('prosCons');
         break;
       case 3:
+        setStep('priorities');
+        break;
+      case 4:
         setStep('rating');
         setCurrentPriorityIndex(0);
+        break;
+      case 5:
+        setStep('confidence');
         break;
       default:
         setStep('welcome');
@@ -147,7 +162,7 @@ const Index = () => {
         <div className="max-w-5xl mx-auto">
           {step !== 'welcome' && step !== 'results' && (
             <div className="mb-6 sm:mb-8">
-              <StepIndicator totalSteps={5} currentStep={getStepIndex()} />
+              <StepIndicator totalSteps={7} currentStep={getStepIndex()} />
             </div>
           )}
 
@@ -170,8 +185,18 @@ const Index = () => {
                 key="options"
                 options={options}
                 onOptionsChange={setOptions}
-                onNext={() => setStep('priorities')}
+                onNext={() => setStep('prosCons')}
                 onBack={() => setStep('welcome')}
+              />
+            )}
+
+            {step === 'prosCons' && (
+              <ProsConsStep
+                key="prosCons"
+                options={options}
+                onOptionsChange={setOptions}
+                onNext={() => setStep('priorities')}
+                onBack={() => setStep('options')}
               />
             )}
 
@@ -184,7 +209,7 @@ const Index = () => {
                   setCurrentPriorityIndex(0);
                   setStep('rating');
                 }}
-                onBack={() => setStep('options')}
+                onBack={() => setStep('prosCons')}
               />
             )}
 
@@ -200,12 +225,29 @@ const Index = () => {
               />
             )}
 
+            {step === 'confidence' && (
+              <ConfidenceStep
+                key="confidence"
+                confidenceScore={confidenceScore}
+                reflectionNotes={reflectionNotes}
+                onConfidenceChange={setConfidenceScore}
+                onReflectionChange={setReflectionNotes}
+                onNext={() => setStep('results')}
+                onBack={() => {
+                  setCurrentPriorityIndex(priorities.length - 1);
+                  setStep('rating');
+                }}
+              />
+            )}
+
             {step === 'results' && (
               <ResultsStep
                 key="results"
                 decision={decision}
                 options={options}
                 priorities={priorities}
+                confidenceScore={confidenceScore}
+                reflectionNotes={reflectionNotes}
                 onReset={handleReset}
               />
             )}

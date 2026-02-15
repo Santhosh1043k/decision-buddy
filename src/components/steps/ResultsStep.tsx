@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
-import { Trophy, RefreshCw, Heart, Brain, MessageCircle } from 'lucide-react';
+import { Trophy, RefreshCw, Heart, Brain, MessageCircle, ThumbsUp, ThumbsDown, Moon, TrendingUp, Sparkles, AlertCircle, HelpCircle, CheckCircle2 } from 'lucide-react';
 import type { Option, Priority } from '@/types/decision';
 import {
   analyzeOptionEmotions,
@@ -11,21 +11,18 @@ import {
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { Badge } from '@/components/ui/badge';
 
 interface ResultsStepProps {
   decision: string;
   options: Option[];
   priorities: Priority[];
+  confidenceScore?: number;
+  reflectionNotes?: string;
   onReset: () => void;
 }
 
-interface ScoredOption {
-  option: Option;
-  totalScore: number;
-  breakdown: { priority: Priority; weighted: number }[];
-}
-
-const ResultsStep = ({ decision, options, priorities, onReset }: ResultsStepProps) => {
+const ResultsStep = ({ decision, options, priorities, confidenceScore, reflectionNotes, onReset }: ResultsStepProps) => {
   const { user } = useAuth();
   const { toast } = useToast();
   const hasSavedRef = useRef(false);
@@ -75,6 +72,33 @@ const ResultsStep = ({ decision, options, priorities, onReset }: ResultsStepProp
 
   const logicalInsightText = getLogicalRecommendation();
   const hasEmotionalData = options.some((o) => o.emotionalText?.trim());
+  const hasProsConsData = options.some((o) => (o.pros?.length || 0) > 0 || (o.cons?.length || 0) > 0);
+
+  // Get confidence insight
+  const getConfidenceInsight = (score: number | undefined): { text: string; icon: typeof Sparkles; color: string } => {
+    if (!score || score < 5) {
+      return { 
+        text: 'You seem uncertain. Consider reviewing your priorities or taking more time.', 
+        icon: AlertCircle, 
+        color: 'text-amber-600' 
+      };
+    } else if (score <= 7) {
+      return { 
+        text: 'Moderate confidence. Trust your analysis but stay open to new information.', 
+        icon: HelpCircle, 
+        color: 'text-blue-600' 
+      };
+    } else {
+      return { 
+        text: 'You feel confident in this direction. Trust your decision.', 
+        icon: CheckCircle2, 
+        color: 'text-green-600' 
+      };
+    }
+  };
+
+  const confidenceInsight = getConfidenceInsight(confidenceScore);
+  const ConfidenceIcon = confidenceInsight.icon;
 
   // Save decision to database when component mounts (for logged in users)
   useEffect(() => {
@@ -93,6 +117,7 @@ const ResultsStep = ({ decision, options, priorities, onReset }: ResultsStepProp
         })),
         logicalInsight: logicalInsightText,
         emotionalInsight: emotionalInsight || '',
+        confidenceScore,
       };
 
       const { error } = await supabase.from('saved_decisions').insert([{
@@ -101,6 +126,14 @@ const ResultsStep = ({ decision, options, priorities, onReset }: ResultsStepProp
         options: JSON.parse(JSON.stringify(options)),
         priorities: JSON.parse(JSON.stringify(priorities)),
         recommendation: JSON.parse(JSON.stringify(recommendation)),
+        confidence_score: confidenceScore,
+        reflection_notes: reflectionNotes,
+        pros_cons: JSON.parse(JSON.stringify(options.map(o => ({
+          optionId: o.id,
+          optionName: o.name,
+          pros: o.pros || [],
+          cons: o.cons || [],
+        })))),
       }]);
 
       if (error) {
@@ -119,7 +152,7 @@ const ResultsStep = ({ decision, options, priorities, onReset }: ResultsStepProp
     };
 
     saveDecision();
-  }, [user, decision, options, priorities, winner, scoredOptions, maxPossible, logicalInsightText, emotionalInsight, toast]);
+  }, [user, decision, options, priorities, winner, scoredOptions, maxPossible, logicalInsightText, emotionalInsight, confidenceScore, reflectionNotes, toast]);
 
   return (
     <motion.div
@@ -145,6 +178,46 @@ const ResultsStep = ({ decision, options, priorities, onReset }: ResultsStepProp
             Your Recommendation
           </h2>
         </motion.div>
+
+        {/* Confidence Score */}
+        {confidenceScore !== undefined && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.15 }}
+            className="card-calm mb-4 border-2 border-primary/20"
+          >
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <ConfidenceIcon className={`w-5 h-5 ${confidenceInsight.color}`} />
+                <span className="text-sm font-medium text-foreground">Your Confidence</span>
+              </div>
+              <Badge variant="secondary" className="font-serif text-lg px-3">
+                {confidenceScore}/10
+              </Badge>
+            </div>
+            <div className="h-2 bg-muted rounded-full overflow-hidden mb-3">
+              <motion.div
+                initial={{ width: 0 }}
+                animate={{ width: `${confidenceScore * 10}%` }}
+                transition={{ delay: 0.3, duration: 0.6 }}
+                className={`h-full rounded-full ${
+                  confidenceScore < 5 ? 'bg-amber-500' : 
+                  confidenceScore <= 7 ? 'bg-blue-500' : 'bg-green-500'
+                }`}
+              />
+            </div>
+            <p className={`text-sm ${confidenceInsight.color}`}>
+              {confidenceInsight.text}
+            </p>
+            {reflectionNotes && (
+              <div className="mt-3 pt-3 border-t border-border">
+                <p className="text-xs text-muted-foreground mb-1">Your notes:</p>
+                <p className="text-sm text-foreground italic">"{reflectionNotes}"</p>
+              </div>
+            )}
+          </motion.div>
+        )}
 
         {/* Logical Analysis */}
         <motion.div
@@ -304,6 +377,101 @@ const ResultsStep = ({ decision, options, priorities, onReset }: ResultsStepProp
             );
           })}
         </div>
+
+        {/* Pros & Cons Breakdown for Winner */}
+        {hasProsConsData && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.75 }}
+            className="card-calm mb-6"
+          >
+            <div className="flex items-center gap-2 mb-4">
+              <div className="flex items-center gap-1">
+                <ThumbsUp className="w-4 h-4 text-green-600" />
+                <ThumbsDown className="w-4 h-4 text-amber-600" />
+              </div>
+              <span className="text-sm font-medium text-foreground">
+                Pros & Cons for "{winner.option.name}"
+              </span>
+            </div>
+            
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {/* Pros */}
+              <div>
+                <p className="text-xs font-medium text-green-700 dark:text-green-400 mb-2 flex items-center gap-1">
+                  <ThumbsUp size={12} />
+                  Pros ({winner.option.pros?.length || 0})
+                </p>
+                {winner.option.pros && winner.option.pros.length > 0 ? (
+                  <ul className="space-y-1.5">
+                    {winner.option.pros.map((pro, i) => (
+                      <li key={i} className="text-sm text-muted-foreground flex items-start gap-2">
+                        <span className="text-green-500 mt-0.5">+</span>
+                        <span>{pro}</span>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-sm text-muted-foreground italic">No pros recorded</p>
+                )}
+              </div>
+
+              {/* Cons */}
+              <div>
+                <p className="text-xs font-medium text-amber-700 dark:text-amber-400 mb-2 flex items-center gap-1">
+                  <ThumbsDown size={12} />
+                  Cons ({winner.option.cons?.length || 0})
+                </p>
+                {winner.option.cons && winner.option.cons.length > 0 ? (
+                  <ul className="space-y-1.5">
+                    {winner.option.cons.map((con, i) => (
+                      <li key={i} className="text-sm text-muted-foreground flex items-start gap-2">
+                        <span className="text-amber-500 mt-0.5">-</span>
+                        <span>{con}</span>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-sm text-muted-foreground italic">No cons recorded</p>
+                )}
+              </div>
+            </div>
+          </motion.div>
+        )}
+
+        {/* Phase 4 CTAs */}
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.85 }}
+          className="grid grid-cols-2 gap-3 mb-6"
+        >
+          <button
+            onClick={() => {
+              toast({
+                title: 'Sleep on it 💤',
+                description: 'Your decision will be here when you return. Take the time you need.',
+              });
+            }}
+            className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-secondary hover:bg-muted transition-colors text-sm font-medium text-foreground"
+          >
+            <Moon size={18} />
+            Sleep on it
+          </button>
+          <button
+            onClick={() => {
+              toast({
+                title: 'Coming soon',
+                description: 'Outcome tracking will be available in Phase 4.',
+              });
+            }}
+            className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-secondary hover:bg-muted transition-colors text-sm font-medium text-foreground"
+          >
+            <TrendingUp size={18} />
+            Track outcome
+          </button>
+        </motion.div>
 
         {/* Final note */}
         <motion.div
